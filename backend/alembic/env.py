@@ -8,12 +8,14 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.database import Base, async_database_url, database_url_from_env
 
+# Import models so their tables are registered with Base.metadata.
+from app.models import User  # noqa: F401
+
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import future model modules before this point so they register with Base.metadata.
 target_metadata = Base.metadata
 
 
