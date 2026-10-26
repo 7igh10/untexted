@@ -57,6 +57,7 @@ async def _assert_users_table_and_constraints() -> None:
     assert primary_key["constrained_columns"] == ["id"]
     assert columns["username"]["type"].length == 32
     assert columns["display_name"]["type"].length == 100
+    assert columns["password_hash"]["type"].length == 255
     assert any(
         constraint["name"] == "uq_users_username"
         and constraint["column_names"] == ["username"]
@@ -77,7 +78,11 @@ async def _assert_username_unique() -> None:
             try:
                 result = await connection.execute(
                     insert(User)
-                    .values(username=username, display_name="First")
+                    .values(
+                        username=username,
+                        display_name="First",
+                        password_hash="test-password-hash",
+                    )
                     .returning(User.id, User.created_at, User.updated_at)
                 )
                 inserted = result.one()
@@ -91,6 +96,7 @@ async def _assert_username_unique() -> None:
                         insert(User).values(
                             username=username,
                             display_name="Second",
+                            password_hash="test-password-hash",
                         )
                     )
 
@@ -113,7 +119,11 @@ async def _assert_updated_at_is_refreshed() -> None:
         async with engine.begin() as connection:
             result = await connection.execute(
                 insert(User)
-                .values(username=username, display_name="Before")
+                .values(
+                    username=username,
+                    display_name="Before",
+                    password_hash="test-password-hash",
+                )
                 .returning(User.id, User.updated_at)
             )
             inserted = result.one()

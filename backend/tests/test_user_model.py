@@ -21,6 +21,7 @@ def test_user_model_declares_required_columns_and_constraints() -> None:
         "id",
         "username",
         "display_name",
+        "password_hash",
         "created_at",
         "updated_at",
     }
@@ -30,6 +31,9 @@ def test_user_model_declares_required_columns_and_constraints() -> None:
     assert isinstance(table.c.display_name.type, String)
     assert table.c.display_name.type.length == 100
     assert table.c.display_name.nullable is False
+    assert isinstance(table.c.password_hash.type, String)
+    assert table.c.password_hash.type.length == 255
+    assert table.c.password_hash.nullable is False
 
     for name in ("created_at", "updated_at"):
         column = table.c[name]
@@ -54,3 +58,13 @@ def test_user_model_declares_required_columns_and_constraints() -> None:
 
 def test_user_model_is_registered_in_base_metadata() -> None:
     assert Base.metadata.tables["users"] is User.__table__
+
+
+def test_user_repr_does_not_expose_password_hash() -> None:
+    user = User(
+        username="alice",
+        display_name="Alice",
+        password_hash="$argon2id$secret-hash",
+    )
+
+    assert "$argon2id$secret-hash" not in repr(user)

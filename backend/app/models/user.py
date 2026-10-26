@@ -9,6 +9,7 @@ from app.database import Base
 
 USERNAME_MAX_LENGTH = 32
 DISPLAY_NAME_MAX_LENGTH = 100
+PASSWORD_HASH_MAX_LENGTH = 255
 
 
 class User(Base):
@@ -32,6 +33,10 @@ class User(Base):
         String(DISPLAY_NAME_MAX_LENGTH),
         nullable=False,
     )
+    password_hash: Mapped[str] = mapped_column(
+        String(PASSWORD_HASH_MAX_LENGTH),
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -44,3 +49,6 @@ class User(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+    def __repr__(self) -> str:
+        return f"User(id={self.id!r}, username={self.username!r})"
