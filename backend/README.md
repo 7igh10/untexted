@@ -102,6 +102,43 @@ Error responses:
 The endpoint relies on the PostgreSQL unique constraint as the source of truth;
 it does not use a pre-check to guarantee uniqueness.
 
+## User search API
+
+`GET /users/search?q=...` searches users by username. It requires an
+authenticated session and returns HTTP 200 with a JSON array of `UserPublic`
+objects. At most 20 users are returned.
+
+The query is trimmed and normalized to lowercase before filtering. Search is
+case-insensitive for the supported username characters. Filtering, exclusion
+of the current user, sorting by username, and the limit are performed in
+PostgreSQL.
+
+Request rules:
+
+- `q` is required.
+- `q` must be 1-32 characters after trimming.
+- Empty, whitespace-only, or too long values return HTTP 422.
+- `%`, `_`, and `\` are treated as ordinary characters, not SQL wildcards.
+
+Example request:
+
+```sh
+curl -b cookies.txt "http://127.0.0.1:8000/users/search?q=ali"
+```
+
+Example response:
+
+```json
+[
+  {
+    "id": "5f0c1c1e-7d1a-4e4a-9c7e-3f0b1a2c3d4e",
+    "username": "alice",
+    "display_name": "Alice",
+    "created_at": "2026-10-27T10:00:00Z"
+  }
+]
+```
+
 ## Authentication configuration
 
 The session cookie and CSRF checks are configured through environment
@@ -288,7 +325,7 @@ database with the migrations applied:
 cd backend
 export TEST_DATABASE_URL="postgresql://<user>:<password>@localhost:5432/<database>"
 DATABASE_URL="$TEST_DATABASE_URL" alembic upgrade head
-python -m pytest tests/test_auth_database.py tests/test_registration_database.py tests/test_user_database.py
+python -m pytest tests/test_auth_database.py tests/test_registration_database.py tests/test_user_database.py tests/test_user_search_database.py
 ```
 
 The integration tests verify the real table, constraints, registration,
@@ -320,7 +357,10 @@ backend/
 │   │   ├── session.py
 │   │   └── user.py
 │   ├── users/
-│   │   └── router.py
+│   │   ├── __init__.py
+│   │   ├── router.py
+│   │   ├── schemas.py
+│   │   └── service.py
 │   ├── __init__.py
 │   ├── database.py
 │   └── main.py
@@ -333,7 +373,9 @@ backend/
 │   ├── test_registration.py
 │   ├── test_registration_database.py
 │   ├── test_user_database.py
-│   └── test_user_model.py
+│   ├── test_user_model.py
+│   ├── test_user_search.py
+│   └── test_user_search_database.py
 ├── alembic.ini
 ├── pytest.ini
 ├── README.md
