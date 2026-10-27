@@ -17,6 +17,7 @@ class LoginRateLimiter:
         account_window_minutes: int | None = None,
         ip_limit: int | None = None,
         ip_window_minutes: int | None = None,
+        max_keys: int | None = None,
     ) -> None:
         self.account_limit = account_limit or int(
             os.getenv("LOGIN_RATE_LIMIT_ACCOUNT", "5")
@@ -30,6 +31,7 @@ class LoginRateLimiter:
             minutes=ip_window_minutes
             or int(os.getenv("LOGIN_RATE_LIMIT_IP_WINDOW_MINUTES", "15"))
         )
+        self.max_keys = max_keys or int(os.getenv("RATE_LIMIT_MAX_KEYS", "10000"))
         self._account_attempts: dict[tuple[str, str], list[datetime]] = defaultdict(list)
         self._ip_attempts: dict[str, list[datetime]] = defaultdict(list)
         self._lock = asyncio.Lock()
@@ -50,6 +52,23 @@ class LoginRateLimiter:
             if len(ip_failures) >= self.ip_limit:
                 retry_after = self._retry_after(ip_failures[0], self.ip_window, now)
                 return False, retry_after
+
+            if account_key not in self._account_attempts and len(
+                self._account_attempts
+            ) >= self.max_keys:
+                candidate = self._oldest_unblocked_account_key(now)
+                if candidate is None:
+                    retry_after = self._retry_after_for_all_account_keys(now)
+                    return False, retry_after
+                del self._account_attempts[candidate]
+
+            if ip not in self._ip_attempts and len(self._ip_attempts) >= self.max_keys:
+                candidate = self._oldest_unblocked_ip_key(now)
+                if candidate is None:
+                    retry_after = self._retry_after_for_all_ip_keys(now)
+                    return False, retry_after
+                del self._ip_attempts[candidate]
+
             return True, 0
 
     async def record_failure(self, username: str, ip: str) -> None:
@@ -83,6 +102,48 @@ class LoginRateLimiter:
                 self._ip_attempts[key] = recent
             else:
                 del self._ip_attempts[key]
+
+    def _oldest_unblocked_account_key(self, now: datetime) -> tuple[str, str] | None:
+        candidate: tuple[str, str] | None = None
+        candidate_time: datetime | None = None
+        for key, attempts in self._account_attempts.items():
+            recent = [item for item in attempts if now - item < self.account_window]
+            if len(recent) >= self.account_limit:
+                continue
+            first = min(recent) if recent else now
+            if candidate_time is None or first < candidate_time:
+                candidate = key
+                candidate_time = first
+        return candidate
+
+    def _oldest_unblocked_ip_key(self, now: datetime) -> str | None:
+        candidate: str | None = None
+        candidate_time: datetime | None = None
+        for key, attempts in self._ip_attempts.items():
+            recent = [item for item in attempts if now - item < self.ip_window]
+            if len(recent) >= self.ip_limit:
+                continue
+            first = min(recent) if recent else now
+            if candidate_time is None or first < candidate_time:
+                candidate = key
+                candidate_time = first
+        return candidate
+
+    def _retry_after_for_all_account_keys(self, now: datetime) -> int:
+        first_attempts = [
+            min(attempts) for attempts in self._account_attempts.values() if attempts
+        ]
+        if not first_attempts:
+            return 1
+        return self._retry_after(min(first_attempts), self.account_window, now)
+
+    def _retry_after_for_all_ip_keys(self, now: datetime) -> int:
+        first_attempts = [
+            min(attempts) for attempts in self._ip_attempts.values() if attempts
+        ]
+        if not first_attempts:
+            return 1
+        return self._retry_after(min(first_attempts), self.ip_window, now)
 
     @staticmethod
     def _retry_after(first_attempt: datetime, window: timedelta, now: datetime) -> int:

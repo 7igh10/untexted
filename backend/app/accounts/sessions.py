@@ -13,7 +13,7 @@ from app.models.user import User
 
 SESSION_COOKIE_NAME = "session"
 SESSION_LIFETIME = timedelta(days=14)
-SESSION_RENEWAL_THRESHOLD = timedelta(hours=24)
+SESSION_RENEWAL_THRESHOLD = timedelta(days=3)
 SESSION_COOKIE_MAX_AGE = int(SESSION_LIFETIME.total_seconds())
 
 
@@ -54,10 +54,20 @@ def clear_session_cookie(response) -> None:
     )
 
 
+def _csrf_strict() -> bool:
+    return (
+        os.getenv("CSRF_STRICT", "true").lower() == "true"
+        or os.getenv("ENVIRONMENT", "").lower() == "production"
+    )
+
+
 def allowed_origins(request: Request) -> set[str]:
     configured = os.getenv("ALLOWED_ORIGINS")
     if configured:
         return {origin.strip() for origin in configured.split(",") if origin.strip()}
+    if _csrf_strict():
+        # In production, do not derive the trusted origin from the request Host.
+        return set()
     return {f"{request.url.scheme}://{request.url.netloc}"}
 
 
@@ -74,11 +84,7 @@ def validate_csrf(request: Request) -> None:
                 origin = f"{parsed.scheme}://{parsed.netloc}"
 
     if origin is None:
-        strict = (
-            os.getenv("CSRF_STRICT", "false").lower() == "true"
-            or os.getenv("ENVIRONMENT", "").lower() == "production"
-        )
-        if strict:
+        if _csrf_strict():
             raise HTTPException(status_code=403, detail="CSRF validation failed")
         return
 
@@ -138,11 +144,26 @@ async def get_session(db_session: AsyncSession, token: str | None):
         return None, False
 
     renewed = False
-    if user_session.expires_at - now <= SESSION_RENEWAL_THRESHOLD:
-        user_session.expires_at = now + SESSION_LIFETIME
-        user_session.last_used_at = now
-        await db_session.commit()
-        renewed = True
+    if user_session.expires_at > now and (
+        user_session.expires_at - now <= SESSION_RENEWAL_THRESHOLD
+    ):
+        locked_result = await db_session.execute(
+            select(UserSession)
+            .where(UserSession.id == user_session.id)
+            .execution_options(populate_existing=True)
+            .with_for_update()
+        )
+        locked_session = locked_result.scalar_one_or_none()
+        if (
+            locked_session is not None
+            and locked_session.expires_at > now
+            and locked_session.expires_at - now <= SESSION_RENEWAL_THRESHOLD
+        ):
+            locked_session.expires_at = now + SESSION_LIFETIME
+            locked_session.last_used_at = now
+            await db_session.commit()
+            renewed = True
+            user_session = locked_session
 
     return user_session, renewed
 

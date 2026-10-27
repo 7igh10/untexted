@@ -110,14 +110,16 @@ variables:
 - `COOKIE_SECURE=true` enables the `Secure` cookie attribute. Use this in
   production behind HTTPS.
 - `ALLOWED_ORIGINS` is a comma-separated list of permitted origins for CSRF
-  checks. If unset, the request's own origin is allowed.
-- `CSRF_STRICT=true` or `ENVIRONMENT=production` rejects unsafe requests
-  without a valid `Origin` or `Referer`.
+  checks. If unset in strict mode, unsafe requests without a valid origin are
+  rejected.
+- `CSRF_STRICT=true` (default) or `ENVIRONMENT=production` rejects unsafe
+  requests without a valid `Origin` or `Referer`.
+- `CSRF_STRICT=false` is intended only for local development and tests.
 - `TRUSTED_PROXIES` is a comma-separated list of proxy addresses allowed to
-  provide `X-Forwarded-For`.
+  provide `X-Forwarded-For`. It is empty by default.
 - `LOGIN_RATE_LIMIT_ACCOUNT`, `LOGIN_RATE_LIMIT_ACCOUNT_WINDOW_MINUTES`,
-  `LOGIN_RATE_LIMIT_IP`, and `LOGIN_RATE_LIMIT_IP_WINDOW_MINUTES` configure
-  the in-memory login rate limiter.
+  `LOGIN_RATE_LIMIT_IP`, `LOGIN_RATE_LIMIT_IP_WINDOW_MINUTES`, and
+  `RATE_LIMIT_MAX_KEYS` configure the in-memory login rate limiter.
 
 Passwords are hashed with Argon2id through `argon2-cffi`, using the RFC 9106
 low-memory profile and a fresh random salt for every password. See
@@ -142,6 +144,7 @@ Session cookies use:
 - `SameSite=Lax`;
 - `Path=/`;
 - `Max-Age=1209600` (14 days);
+- sliding expiration extends a session by 14 days when less than 3 days remain.
 - `Secure` only when `COOKIE_SECURE=true`.
 
 The raw session token is never stored in PostgreSQL. Only its SHA-256 hash is

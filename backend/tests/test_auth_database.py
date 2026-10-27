@@ -8,10 +8,11 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select
 from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.accounts.sessions import hash_session_token
 from app.accounts.rate_limit import login_rate_limiter
-from app.accounts.sessions import SESSION_COOKIE_NAME
+from app.accounts.sessions import SESSION_COOKIE_NAME, get_session, hash_session_token
 from app.database import create_database_engine
 from app.main import app
 from app.models import User, UserSession
@@ -121,6 +122,7 @@ def db_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
 
     existing_ids = asyncio.run(_fetch_user_ids())
     monkeypatch.setenv("DATABASE_URL", test_database_url)
+    monkeypatch.setenv("CSRF_STRICT", "false")
     app.dependency_overrides.clear()
     login_rate_limiter.reset()
 
@@ -405,6 +407,154 @@ def test_csrf_allows_missing_origin_in_development(db_client: TestClient) -> Non
     )
 
     assert response.status_code in {401, 429}
+
+
+def test_csrf_strict_rejects_missing_origin(
+    db_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CSRF_STRICT", "true")
+
+    response = db_client.post(
+        "/auth/login",
+        json={"username": "alice", "password": "password"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_csrf_allows_configured_origin(
+    db_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ALLOWED_ORIGINS", "http://testserver")
+
+    response = db_client.post(
+        "/auth/login",
+        json={"username": "alice", "password": "password"},
+        headers={"Origin": "http://testserver"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_csrf_rejects_disallowed_origin_with_referer_fallback(
+    db_client: TestClient,
+) -> None:
+    response = db_client.post(
+        "/auth/login",
+        json={"username": "alice", "password": "password"},
+        headers={"Referer": "https://evil.example/path"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_login_csrf_rejects_disallowed_origin(db_client: TestClient) -> None:
+    response = db_client.post(
+        "/auth/login",
+        json={"username": "alice", "password": "password"},
+        headers={"Origin": "https://evil.example"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_session_is_not_renewed_when_more_than_threshold_remains(
+    db_client: TestClient,
+) -> None:
+    username = _unique_username()
+    password = "correct horse battery staple"
+    db_client.post("/auth/register", json=_registration_payload(username, password))
+
+    token = "long-lived-session-token"
+    expires_at = datetime.now(timezone.utc) + timedelta(days=5)
+    asyncio.run(_create_session_for_user(username, token=token, expires_at=expires_at))
+
+    response = db_client.get("/users/me", headers={"Cookie": f"session={token}"})
+
+    assert response.status_code == 200
+    assert response.headers.get("set-cookie") is None
+
+    async def fetch_expiry() -> datetime:
+        engine = create_database_engine(_test_database_url())
+        try:
+            async with engine.connect() as connection:
+                result = await connection.execute(
+                    select(UserSession.expires_at)
+                    .join(User, User.id == UserSession.user_id)
+                    .where(User.username == username)
+                )
+                return result.scalar_one()
+        finally:
+            await engine.dispose()
+
+    new_expiry = asyncio.run(fetch_expiry())
+    assert new_expiry == expires_at.replace(microsecond=expires_at.microsecond)
+
+
+def test_concurrent_renewal_does_not_corrupt_session(db_client: TestClient) -> None:
+    username = _unique_username()
+    password = "correct horse battery staple"
+    db_client.post("/auth/register", json=_registration_payload(username, password))
+
+    token = "concurrent-session-token"
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    asyncio.run(_create_session_for_user(username, token=token, expires_at=expires_at))
+
+    first = db_client.get("/users/me", headers={"Cookie": f"session={token}"})
+    second = db_client.get("/users/me", headers={"Cookie": f"session={token}"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    async def fetch_expiry() -> datetime:
+        engine = create_database_engine(_test_database_url())
+        try:
+            async with engine.connect() as connection:
+                result = await connection.execute(
+                    select(UserSession.expires_at)
+                    .join(User, User.id == UserSession.user_id)
+                    .where(User.username == username)
+                )
+                return result.scalar_one()
+        finally:
+            await engine.dispose()
+
+    new_expiry = asyncio.run(fetch_expiry())
+    assert new_expiry > expires_at
+
+
+async def _renew_session_concurrently(token: str) -> list[bool]:
+    engine = create_database_engine(_test_database_url())
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    results: list[bool] = []
+
+    async def renew_once() -> bool:
+        async with session_factory() as session:
+            _user_session, renewed = await get_session(session, token)
+            return renewed
+
+    try:
+        gathered = await asyncio.gather(renew_once(), renew_once())
+        results.extend(gathered)
+    finally:
+        await engine.dispose()
+    return results
+
+
+def test_concurrent_session_renewal_is_serialized(db_client: TestClient) -> None:
+    username = _unique_username()
+    password = "correct horse battery staple"
+    db_client.post("/auth/register", json=_registration_payload(username, password))
+
+    token = "database-level-concurrent-token"
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    asyncio.run(_create_session_for_user(username, token=token, expires_at=expires_at))
+
+    results = asyncio.run(_renew_session_concurrently(token))
+
+    assert sorted(results) == [False, True]
 
 
 def test_health_and_ready_remain_available(db_client: TestClient) -> None:

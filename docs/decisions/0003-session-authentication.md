@@ -48,3 +48,13 @@ session. Redis was not added; PostgreSQL remains the authoritative store.
 - Revocation of all sessions on password change or suspected compromise.
 - Stronger abuse protection for administrative accounts.
 - Email verification and password reset as separate future features.
+
+### Hardening notes
+
+- CSRF protection is strict by default. Missing `Origin`/`Referer` is allowed
+  only in non-strict local development mode.
+- Production must set `ALLOWED_ORIGINS`; the request Host is not used as a
+  trusted origin fallback in strict mode.
+- `X-Forwarded-For` is trusted only for addresses listed in `TRUSTED_PROXIES`.
+- The in-memory rate limiter bounds its key count and returns `429` when it
+  cannot safely accept a new key.

@@ -117,6 +117,7 @@ def db_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
 
     existing_ids = asyncio.run(_fetch_user_ids())
     monkeypatch.setenv("DATABASE_URL", test_database_url)
+    monkeypatch.setenv("CSRF_STRICT", "false")
     app.dependency_overrides.clear()
 
     try:

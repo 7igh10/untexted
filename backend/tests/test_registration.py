@@ -68,7 +68,11 @@ class UsernameConflictSession(WriteFailingSession):
 
 
 @pytest.fixture
-def validation_client(client: TestClient) -> TestClient:
+def validation_client(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> TestClient:
+    monkeypatch.setenv("CSRF_STRICT", "false")
     async def override_get_db_session() -> AsyncIterator[UnusedSession]:
         yield UnusedSession()
 
