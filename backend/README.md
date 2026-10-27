@@ -162,6 +162,42 @@ Passwords are hashed with Argon2id through `argon2-cffi`, using the RFC 9106
 low-memory profile and a fresh random salt for every password. See
 [decisions/0002-password-hashing.md](../docs/decisions/0002-password-hashing.md).
 
+## Friends API
+
+Friend requests and friendships require an authenticated session.
+
+Endpoints:
+
+- `POST /friends/requests` — send a friend request.
+- `GET /friends/requests/incoming` — list pending incoming requests.
+- `GET /friends/requests/outgoing` — list pending outgoing requests.
+- `POST /friends/requests/{request_id}/accept` — accept a pending request.
+- `POST /friends/requests/{request_id}/reject` — reject a pending request.
+- `GET /friends` — list the current user's friends.
+
+`POST /friends/requests` accepts one of:
+
+```json
+{"username": "bob"}
+```
+
+or:
+
+```json
+{"user_id": "5f0c1c1e-7d1a-4e4a-9c7e-3f0b1a2c3d4e"}
+```
+
+Rules:
+
+- A user cannot send a request to themselves.
+- Duplicate pending requests are rejected.
+- Existing friends cannot receive another request.
+- A rejected request can be sent again.
+- A mutual request automatically creates a friendship.
+- Only the recipient can accept or reject a request.
+- Friendships are stored once per normalized user pair.
+- Responses contain only public user fields.
+
 ## Authentication API
 
 `POST /auth/login` authenticates a user with username and password and creates
@@ -260,11 +296,12 @@ alembic revision --autogenerate -m "describe the change"
 should inherit from `Base` and be imported by the migration environment so they
 register in that metadata before autogenerate runs.
 
-The current migration head is revision `20261026_0004`
-(`20261026_0004_create_sessions_table.py`). Revision `20261026_0002`
+The current migration head is revision `20261026_0005`
+(`20261026_0005_create_friends_tables.py`). Revision `20261026_0002`
 creates the `users` table, revision `20261026_0003` adds the required
-`password_hash` column, and revision `20261026_0004` creates the
-`sessions` table.
+`password_hash` column, revision `20261026_0004` creates the `sessions`
+table, and revision `20261026_0005` creates the `friend_requests` and
+`friendships` tables.
 
 The password hash migration adds a `NOT NULL` column without a data backfill.
 It is safe for the current schema because registration did not exist before
@@ -325,7 +362,7 @@ database with the migrations applied:
 cd backend
 export TEST_DATABASE_URL="postgresql://<user>:<password>@localhost:5432/<database>"
 DATABASE_URL="$TEST_DATABASE_URL" alembic upgrade head
-python -m pytest tests/test_auth_database.py tests/test_registration_database.py tests/test_user_database.py tests/test_user_search_database.py
+python -m pytest tests/test_auth_database.py tests/test_friends_database.py tests/test_registration_database.py tests/test_user_database.py tests/test_user_search_database.py
 ```
 
 The integration tests verify the real table, constraints, registration,
@@ -352,8 +389,14 @@ backend/
 │   │   ├── schemas.py
 │   │   ├── service.py
 │   │   └── sessions.py
+│   ├── friends/
+│   │   ├── __init__.py
+│   │   ├── router.py
+│   │   ├── schemas.py
+│   │   └── service.py
 │   ├── models/
 │   │   ├── __init__.py
+│   │   ├── friends.py
 │   │   ├── session.py
 │   │   └── user.py
 │   ├── users/
@@ -370,6 +413,8 @@ backend/
 │   ├── test_auth_database.py
 │   ├── test_health.py
 │   ├── test_readiness.py
+│   ├── test_friends.py
+│   ├── test_friends_database.py
 │   ├── test_registration.py
 │   ├── test_registration_database.py
 │   ├── test_user_database.py

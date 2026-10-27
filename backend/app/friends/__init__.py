@@ -1,0 +1,1 @@
+"""Friend request and friendship endpoints."""

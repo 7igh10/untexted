@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.database import Base, async_database_url, database_url_from_env
 
 # Import models so their tables are registered with Base.metadata.
-from app.models import User, UserSession  # noqa: F401
+from app.models import FriendRequest, Friendship, User, UserSession  # noqa: F401
 
 config = context.config
 
