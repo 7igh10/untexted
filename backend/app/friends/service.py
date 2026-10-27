@@ -333,6 +333,16 @@ async def _friendship_exists(session: AsyncSession, first_id, second_id) -> bool
     return friendship is not None
 
 
+async def friendship_exists(session: AsyncSession, first_id, second_id) -> bool:
+    """Return whether two users are currently friends."""
+    return await _friendship_exists(session, first_id, second_id)
+
+
+async def lock_user_pair(session: AsyncSession, first_id, second_id) -> None:
+    """Serialize operations for an unordered pair of users."""
+    await _lock_friend_pair(session, first_id, second_id)
+
+
 async def list_incoming_requests(
     session: AsyncSession,
     current_user: User,

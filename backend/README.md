@@ -198,6 +198,41 @@ Rules:
 - Friendships are stored once per normalized user pair.
 - Responses contain only public user fields.
 
+
+## Conversations API
+
+Private conversations require an authenticated session.
+
+Endpoints:
+
+- `POST /conversations` — create a private conversation or return the existing one.
+- `GET /conversations` — list the current user's private conversations.
+- `GET /conversations/{conversation_id}` — return one private conversation.
+
+`POST /conversations` accepts one of:
+
+```json
+{"username": "bob"}
+```
+
+or:
+
+```json
+{"user_id": "5f0c1c1e-7d1a-4e4a-9c7e-3f0b1a2c3d4e"}
+```
+
+Rules:
+
+- A user cannot create a conversation with themselves.
+- A conversation can be created only between current friends.
+- At most one conversation exists for a normalized user pair.
+- Repeated creation returns the existing conversation.
+- Existing conversations remain readable after friendship ends.
+- The current user must participate in a conversation to read it.
+
+The response contains `id`, `created_at`, and `other_user` with public user
+fields.
+
 ## Authentication API
 
 `POST /auth/login` authenticates a user with username and password and creates

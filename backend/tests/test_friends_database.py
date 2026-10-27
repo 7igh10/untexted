@@ -129,7 +129,7 @@ async def _count_pending_requests(first_username: str, second_username: str) -> 
 
 
 def _unique_username(prefix: str = "friend") -> str:
-    return f"{prefix}_{uuid4().hex[:20]}"
+    return f"{prefix}{uuid4().hex[:20]}"
 
 
 def _register(db_client: TestClient, username: str) -> None:
