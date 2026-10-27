@@ -102,9 +102,70 @@ Error responses:
 The endpoint relies on the PostgreSQL unique constraint as the source of truth;
 it does not use a pre-check to guarantee uniqueness.
 
+## Authentication configuration
+
+The session cookie and CSRF checks are configured through environment
+variables:
+
+- `COOKIE_SECURE=true` enables the `Secure` cookie attribute. Use this in
+  production behind HTTPS.
+- `ALLOWED_ORIGINS` is a comma-separated list of permitted origins for CSRF
+  checks. If unset, the request's own origin is allowed.
+- `CSRF_STRICT=true` or `ENVIRONMENT=production` rejects unsafe requests
+  without a valid `Origin` or `Referer`.
+- `TRUSTED_PROXIES` is a comma-separated list of proxy addresses allowed to
+  provide `X-Forwarded-For`.
+- `LOGIN_RATE_LIMIT_ACCOUNT`, `LOGIN_RATE_LIMIT_ACCOUNT_WINDOW_MINUTES`,
+  `LOGIN_RATE_LIMIT_IP`, and `LOGIN_RATE_LIMIT_IP_WINDOW_MINUTES` configure
+  the in-memory login rate limiter.
+
 Passwords are hashed with Argon2id through `argon2-cffi`, using the RFC 9106
 low-memory profile and a fresh random salt for every password. See
 [decisions/0002-password-hashing.md](../docs/decisions/0002-password-hashing.md).
+
+## Authentication API
+
+`POST /auth/login` authenticates a user with username and password and creates
+a server-side session. On success it returns HTTP 200 with `UserPublic` and
+sets an HttpOnly session cookie.
+
+`POST /auth/logout` revokes only the current session, clears the cookie, and
+returns HTTP 204. It is idempotent when no cookie is present.
+
+`GET /users/me` returns HTTP 200 with the authenticated user's `UserPublic`.
+Without a valid session it returns HTTP 401.
+
+Session cookies use:
+
+- name: `session`;
+- `HttpOnly=true`;
+- `SameSite=Lax`;
+- `Path=/`;
+- `Max-Age=1209600` (14 days);
+- `Secure` only when `COOKIE_SECURE=true`.
+
+The raw session token is never stored in PostgreSQL. Only its SHA-256 hash is
+stored in `sessions.token_hash`.
+
+Sliding expiration extends a session by 14 days when less than 24 hours
+remain. The cookie `Max-Age` is updated in the same response.
+
+Login attempts are rate-limited in memory:
+
+- 5 failed attempts per `(username, IP)` in 15 minutes;
+- 50 failed attempts per IP in 15 minutes.
+
+When a limit is exceeded, the API returns HTTP 429 with `Retry-After`.
+The limiter is process-local and is reset on restart. It does not permanently
+lock accounts. Behind a reverse proxy, set `TRUSTED_PROXIES` to the proxy
+address before trusting `X-Forwarded-For`.
+
+Basic CSRF protection checks `Origin` or `Referer` for unsafe methods. In
+production set `ALLOWED_ORIGINS` and `CSRF_STRICT=true`. `SameSite=Lax` is
+not considered sufficient CSRF protection by itself.
+
+Error responses do not reveal whether a username exists and do not include
+passwords, password hashes, session tokens, or SQL details.
 
 ## Database migrations
 
@@ -159,10 +220,11 @@ alembic revision --autogenerate -m "describe the change"
 should inherit from `Base` and be imported by the migration environment so they
 register in that metadata before autogenerate runs.
 
-The current migration head is revision `20261026_0003`
-(`20261026_0003_add_password_hash_to_users.py`). Revision `20261026_0002`
-creates the `users` table, and revision `20261026_0003` adds the required
-`password_hash` column.
+The current migration head is revision `20261026_0004`
+(`20261026_0004_create_sessions_table.py`). Revision `20261026_0002`
+creates the `users` table, revision `20261026_0003` adds the required
+`password_hash` column, and revision `20261026_0004` creates the
+`sessions` table.
 
 The password hash migration adds a `NOT NULL` column without a data backfill.
 It is safe for the current schema because registration did not exist before
@@ -223,7 +285,7 @@ database with the migrations applied:
 cd backend
 export TEST_DATABASE_URL="postgresql://<user>:<password>@localhost:5432/<database>"
 DATABASE_URL="$TEST_DATABASE_URL" alembic upgrade head
-python -m pytest tests/test_registration_database.py tests/test_user_database.py
+python -m pytest tests/test_auth_database.py tests/test_registration_database.py tests/test_user_database.py
 ```
 
 The integration tests verify the real table, constraints, registration,
@@ -243,18 +305,26 @@ backend/
 ├── app/
 │   ├── accounts/
 │   │   ├── __init__.py
+│   │   ├── dependencies.py
 │   │   ├── passwords.py
+│   │   ├── rate_limit.py
 │   │   ├── router.py
 │   │   ├── schemas.py
-│   │   └── service.py
+│   │   ├── service.py
+│   │   └── sessions.py
 │   ├── models/
 │   │   ├── __init__.py
+│   │   ├── session.py
 │   │   └── user.py
+│   ├── users/
+│   │   └── router.py
 │   ├── __init__.py
 │   ├── database.py
 │   └── main.py
 ├── tests/
 │   ├── conftest.py
+│   ├── test_auth.py
+│   ├── test_auth_database.py
 │   ├── test_health.py
 │   ├── test_readiness.py
 │   ├── test_registration.py

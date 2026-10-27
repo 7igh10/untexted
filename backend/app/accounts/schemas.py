@@ -11,6 +11,7 @@ DISPLAY_NAME_PATTERN = (
 )
 PASSWORD_MIN_LENGTH = 8
 PASSWORD_MAX_LENGTH = 128
+LOGIN_PASSWORD_MAX_LENGTH = 128
 
 
 class RegisterRequest(BaseModel):
@@ -57,8 +58,33 @@ class RegisterRequest(BaseModel):
         return value
 
 
+class LoginRequest(BaseModel):
+    """Payload accepted by the login endpoint."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(
+        min_length=1,
+        max_length=USERNAME_MAX_LENGTH,
+        pattern=USERNAME_PATTERN,
+        description="Registered username.",
+    )
+    password: SecretStr = Field(
+        min_length=1,
+        max_length=LOGIN_PASSWORD_MAX_LENGTH,
+        description="Account password.",
+    )
+
+    @field_validator("password")
+    @classmethod
+    def reject_blank_password(cls, value: SecretStr) -> SecretStr:
+        if not value.get_secret_value().strip():
+            raise ValueError("must not be empty or whitespace-only")
+        return value
+
+
 class UserPublic(BaseModel):
-    """Public user data returned after registration."""
+    """Public user data returned by registration and authentication."""
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -8,12 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts.router import router as auth_router
 from app.database import database_is_ready, get_db_session, lifespan
+from app.users.router import router as users_router
 
 REDACTED_VALUE = "[redacted]"
 SENSITIVE_FIELDS = {"password", "password_hash"}
 
 app = FastAPI(title="Untexted API", lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(users_router)
 
 
 def _redact_sensitive_values(value: object) -> object:

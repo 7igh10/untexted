@@ -3,8 +3,13 @@ import asyncio
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.accounts.passwords import hash_password
+from app.accounts.passwords import (
+    DUMMY_PASSWORD_HASH,
+    hash_password,
+    verify_password,
+)
 from app.accounts.schemas import RegisterRequest
+from app.accounts.sessions import create_session, get_user_by_username
 from app.models import User
 
 USERNAME_UNIQUE_CONSTRAINT = "uq_users_username"
@@ -53,3 +58,31 @@ async def create_user(session: AsyncSession, request: RegisterRequest) -> User:
         raise RegistrationError from error
 
     return user
+
+
+async def authenticate_user(
+    session: AsyncSession,
+    username: str,
+    password: str,
+) -> User | None:
+    """Verify credentials without revealing whether the username exists."""
+    user = await get_user_by_username(session, username)
+    if user is None:
+        verify_password(password, DUMMY_PASSWORD_HASH)
+        return None
+    if not verify_password(password, user.password_hash):
+        return None
+    return user
+
+
+async def login_user(
+    session: AsyncSession,
+    username: str,
+    password: str,
+):
+    """Authenticate and create an independent server-side session."""
+    user = await authenticate_user(session, username, password)
+    if user is None:
+        return None
+    token, user_session = await create_session(session, user.id)
+    return user, token, user_session
