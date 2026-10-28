@@ -1,3 +1,5 @@
+@import './tokens.css';
+@import './layout.css';
 @import './auth.css';
 
 :root {
@@ -11,8 +13,8 @@
 
 body {
   margin: 0;
-  background: #f5f5f5;
-  color: #111111;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 
 .app-shell {

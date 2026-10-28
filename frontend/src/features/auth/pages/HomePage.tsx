@@ -1,27 +1,39 @@
-import { useNavigate } from 'react-router-dom'
-
 import { useAuth } from '../../../hooks/useAuth'
 
-export function HomePage() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
-
-  async function handleLogout() {
-    try {
-      await logout()
-      navigate('/login', { replace: true })
-    } catch {
-      // Keep the session state unchanged if logout fails.
-    }
+function formatCreatedAt(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
   }
 
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+export function HomePage() {
+  const { user } = useAuth()
+
   return (
-    <main className="app-shell">
-      <h1>Untexted</h1>
-      <p>Welcome, {user?.display_name ?? user?.username}.</p>
-      <button type="button" onClick={handleLogout}>
-        Log out
-      </button>
-    </main>
+    <section className="home-card">
+        <h1>Untexted</h1>
+        <p className="auth-subtitle">Welcome, {user?.display_name ?? user?.username}.</p>
+
+      {user ? (
+        <section className="profile-summary" aria-label="Current user">
+          <p>
+            <strong>Username:</strong> {user.username}
+          </p>
+          <p>
+            <strong>Display name:</strong> {user.display_name}
+          </p>
+          <p>
+            <strong>Member since:</strong> {formatCreatedAt(user.created_at)}
+          </p>
+        </section>
+      ) : null}
+
+      </section>
   )
 }

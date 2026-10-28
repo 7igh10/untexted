@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { useAuth } from '../hooks/useAuth'
 import { HomePage } from '../features/auth/pages/HomePage'
+import { AppLayout } from './layouts/AppLayout'
+import { UserSearchPage } from '../features/users/pages/UserSearchPage'
 import { LoginPage } from '../features/auth/pages/LoginPage'
 import { RegisterPage } from '../features/auth/pages/RegisterPage'
 
@@ -53,10 +55,22 @@ export function AppRouter() {
         }
       />
       <Route
+        path="/search"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <UserSearchPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/"
         element={
           <ProtectedRoute>
-            <HomePage />
+            <AppLayout>
+              <HomePage />
+            </AppLayout>
           </ProtectedRoute>
         }
       />
