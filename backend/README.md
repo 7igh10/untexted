@@ -280,6 +280,51 @@ Message payloads are validated by the server. Emoji messages are limited to 100
 Unicode code points and must not contain arbitrary text. Link messages accept
 only `http` and `https` URLs.
 
+
+## Real-time message delivery
+
+New messages are delivered to active WebSocket connections in addition to the
+HTTP API.
+
+Endpoint:
+
+```text
+GET /conversations/{conversation_id}/ws
+```
+
+The connection uses the existing session cookie for authentication. The server
+checks conversation participation before accepting the connection.
+
+Server events:
+
+```json
+{"type": "connected", "conversation_id": "..."}
+```
+
+```json
+{"type": "message", "message": { ... }}
+```
+
+```json
+{"type": "pong"}
+```
+
+The client may send:
+
+```json
+{"type": "ping"}
+```
+
+Messages are created only through `POST /conversations/{conversation_id}/messages`.
+WebSocket does not accept message creation.
+
+Delivery is in-memory and works only within one backend instance. Messages sent
+while no WebSocket is connected are not replayed; clients should use the
+message history endpoint to load missed messages.
+
+Origin checks follow the configured `ALLOWED_ORIGINS` and CSRF strictness
+settings.
+
 ## Authentication API
 
 `POST /auth/login` authenticates a user with username and password and creates

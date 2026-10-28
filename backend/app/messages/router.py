@@ -16,6 +16,8 @@ from app.messages.service import (
     send_message,
 )
 from app.models.user import User
+from app.realtime.manager import connection_manager
+from uuid import UUID
 
 router = APIRouter(
     prefix="/conversations/{conversation_id}/messages",
@@ -54,6 +56,13 @@ async def create_message(
             status_code=status.HTTP_404_NOT_FOUND, detail="Message not found"
         ) from None
 
+    await connection_manager.broadcast(
+        UUID(str(conversation_id)),
+        {
+            "type": "message",
+            "message": MessagePublic.model_validate(message).model_dump(mode="json"),
+        },
+    )
     return MessagePublic.model_validate(message)
 
 

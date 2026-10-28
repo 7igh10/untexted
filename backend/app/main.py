@@ -11,6 +11,7 @@ from app.database import database_is_ready, get_db_session, lifespan
 from app.friends.router import router as friends_router
 from app.conversations.router import router as conversations_router
 from app.messages.router import router as messages_router
+from app.realtime.router import router as realtime_router
 from app.users.router import router as users_router
 
 REDACTED_VALUE = "[redacted]"
@@ -21,6 +22,7 @@ app.include_router(auth_router)
 app.include_router(friends_router)
 app.include_router(conversations_router)
 app.include_router(messages_router)
+app.include_router(realtime_router)
 app.include_router(users_router)
 
 
