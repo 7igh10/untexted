@@ -1,4 +1,5 @@
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -165,7 +166,12 @@ async def get_conversation(
     current_user: User,
 ) -> Conversation:
     """Return a conversation if the current user is a participant."""
-    conversation = await _get_conversation_by_id(session, conversation_id)
+    try:
+        conversation_uuid = UUID(str(conversation_id))
+    except (TypeError, ValueError) as exc:
+        raise ConversationNotFoundError("Conversation not found") from exc
+
+    conversation = await _get_conversation_by_id(session, conversation_uuid)
     if conversation is None:
         raise ConversationNotFoundError("Conversation not found")
     if current_user.id not in (conversation.user_one_id, conversation.user_two_id):

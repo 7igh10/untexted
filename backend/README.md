@@ -233,6 +233,53 @@ Rules:
 The response contains `id`, `created_at`, and `other_user` with public user
 fields.
 
+
+## Messages API
+
+Messages belong to an existing private conversation and require an
+authenticated session.
+
+Endpoints:
+
+- `POST /conversations/{conversation_id}/messages` — send a message.
+- `GET /conversations/{conversation_id}/messages` — read message history.
+
+Supported message types:
+
+- `emoji`
+- `template`
+- `location`
+- `time`
+- `link`
+
+`POST /conversations/{conversation_id}/messages` accepts:
+
+```json
+{
+  "payload": {
+    "type": "emoji",
+    "emoji_sequence": "😀👍"
+  },
+  "reply_to_message_id": null
+}
+```
+
+Rules:
+
+- The sender is determined from the authenticated session.
+- The current user must participate in the conversation.
+- Sending is allowed only while the participants are friends.
+- Reading remains available after friendship ends.
+- A reply must refer to a message in the same conversation.
+- `schema_version` is assigned by the server.
+
+History is paginated with `limit` (default 50, maximum 100) and an opaque
+`cursor`. The response contains `items` and `next_cursor`.
+
+Message payloads are validated by the server. Emoji messages are limited to 100
+Unicode code points and must not contain arbitrary text. Link messages accept
+only `http` and `https` URLs.
+
 ## Authentication API
 
 `POST /auth/login` authenticates a user with username and password and creates
