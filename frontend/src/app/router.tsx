@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { HomePage } from '../features/auth/pages/HomePage'
 import { AppLayout } from './layouts/AppLayout'
 import { UserSearchPage } from '../features/users/pages/UserSearchPage'
+import { FriendsPage } from '../features/friends/pages/FriendsPage'
 import { LoginPage } from '../features/auth/pages/LoginPage'
 import { RegisterPage } from '../features/auth/pages/RegisterPage'
 
@@ -52,6 +53,26 @@ export function AppRouter() {
           <PublicRoute>
             <RegisterPage />
           </PublicRoute>
+        }
+      />
+      <Route
+        path="/friends"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <FriendsPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/friends"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <FriendsPage />
+            </AppLayout>
+          </ProtectedRoute>
         }
       />
       <Route

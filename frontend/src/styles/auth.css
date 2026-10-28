@@ -149,3 +149,138 @@
   margin: 0 0 0.5rem;
   font-size: 1.75rem;
 }
+
+
+.search-card {
+  width: 100%;
+  max-width: 760px;
+  background: #ffffff;
+  border: 1px solid #dddddd;
+  border-radius: 8px;
+  padding: 2rem;
+}
+
+.search-card h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+}
+
+.friends-card {
+  width: 100%;
+  max-width: 760px;
+  background: #ffffff;
+  border: 1px solid #dddddd;
+  border-radius: 8px;
+  padding: 2rem;
+}
+
+.friends-card h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+}
+
+.friends-section {
+  margin-top: 1.5rem;
+}
+
+.friends-section h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+.friend-list,
+.friend-request-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.friend-item,
+.friend-request-item {
+  border: 1px solid #dddddd;
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.friend-item {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.friend-item span,
+.friend-request-item span {
+  color: #555555;
+  font-size: 0.9rem;
+}
+
+.friend-request-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.friends-empty,
+.friends-status {
+  margin: 0.75rem 0 0;
+  color: #555555;
+}
+
+.friend-request-status {
+  color: #555555;
+  font-size: 0.9rem;
+}
+
+.auth-secondary-button {
+  padding: 0.75rem 1rem;
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111111;
+  font: inherit;
+  cursor: pointer;
+}
+
+.auth-secondary-button:hover {
+  background: #f5f5f5;
+}
+
+.auth-secondary-button:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 2px;
+}
+
+.auth-secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.user-identity {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.user-identity__primary {
+  overflow-wrap: anywhere;
+}
+
+.user-identity__secondary {
+  color: #555555;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.friend-request-item {
+  align-items: flex-start;
+}
+
+.friend-request-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

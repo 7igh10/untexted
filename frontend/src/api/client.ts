@@ -2,11 +2,13 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 export class ApiError extends Error {
   status: number
+  detail: string
 
   constructor(status: number, detail: string) {
     super(detail)
     this.name = 'ApiError'
     this.status = status
+    this.detail = detail
   }
 }
 

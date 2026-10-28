@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 const navigationItems = [
   { to: '/', label: 'main' },
   { to: '/search', label: 'search' },
+  { to: '/friends', label: 'friends' },
 ]
 
 export function AppNavigation() {
