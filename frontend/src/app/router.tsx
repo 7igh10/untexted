@@ -1,0 +1,66 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+
+import { useAuth } from '../hooks/useAuth'
+import { HomePage } from '../features/auth/pages/HomePage'
+import { LoginPage } from '../features/auth/pages/LoginPage'
+import { RegisterPage } from '../features/auth/pages/RegisterPage'
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth()
+
+  if (isLoading) {
+    return <main className="auth-page"><p>Loading session...</p></main>
+  }
+
+  if (user === null) {
+    return <Navigate to="/login" replace />
+  }
+
+  return children
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth()
+
+  if (isLoading) {
+    return <main className="auth-page"><p>Loading session...</p></main>
+  }
+
+  if (user !== null) {
+    return <Navigate to="/" replace />
+  }
+
+  return children
+}
+
+export function AppRouter() {
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <LoginPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <PublicRoute>
+            <RegisterPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <HomePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+}
